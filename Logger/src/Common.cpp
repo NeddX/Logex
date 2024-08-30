@@ -8,7 +8,7 @@ namespace lgx {
             fmt::detail::color_type type;
 
             if (serializedString.compare("{null}") == 0)
-                return std ::nullopt;
+                return std::nullopt;
 
             const auto is_rgb_start = serializedString.find("is_rgb=") + sizeof("is_rgb=") - 1;
             if (is_rgb_start != std::string::npos)

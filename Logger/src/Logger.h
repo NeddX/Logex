@@ -14,7 +14,7 @@ namespace lgx {
             std::string     format                      = "[{datetime}] [{level}] ({prefix}): {msg}\n";
             fmt::text_style defaultInfoStyle            = fmt::bg(fmt::color::dark_green) | fmt::fg(fmt::color::white);
             fmt::text_style defaultWarnStyle            = fmt::bg(fmt::color::orange) | fmt::fg(fmt::color::black);
-            fmt::text_style defaultErrorStyle            = fmt::bg(fmt::color::red) | fmt::fg(fmt::color::white);
+            fmt::text_style defaultErrorStyle           = fmt::bg(fmt::color::red) | fmt::fg(fmt::color::white);
             fmt::text_style defaultFatalStyle =
                 fmt::emphasis ::strikethrough | fmt::bg(fmt::color::dark_red) | fmt::fg(fmt::color::white);
         };
@@ -204,6 +204,11 @@ namespace lgx {
         {
             Log(prefix, level, DefaultStyleFromLevel(level), fmt, std::forward<TArgs>(args)...);
         }
+        template <typename... TArgs>
+        void Log(const Level level, const fmt::text_style& style, const std::string_view fmt, TArgs&&... args) const
+        {
+            Log(m_Properties.defaultPrefix, level, style, fmt, std::forward<TArgs>(args)...);
+        }
 
     public:
         template <typename... TArgs>
@@ -330,6 +335,12 @@ namespace lgx {
     inline void Log(const std::string_view prefix, const Level level, const std::string_view fmt, TArgs&&... args)
     {
         internal::g_GlobalLogger.Log(prefix, level, fmt, std::forward<TArgs>(args)...);
+    }
+
+    template <typename... TArgs>
+    void Log(const Level level, const fmt::text_style& style, const std::string_view fmt, TArgs&&... args)
+    {
+        internal::g_GlobalLogger.Log(level, style, fmt, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>

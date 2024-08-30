@@ -1,0 +1,113 @@
+#+title: Logex - Lightweight C++ Logger
+#+author: Neddiendrohu
+
+* Overview
+Logex is a lightweight, easy-to-use C++ logger designed for simple and effective logging. It provides basic logging functionalities with customizable formatting, multiple output streams, and serialization support.
+
+* Features
+- *Simple Logging Interface*: Log messages with different severity levels: =Info=, =Warn=, =Error= and =Fatal=.
+- *Flexible Output Streams*: Log to various streams like std::ostream, std::ofstream, std::stringstream, etc.
+- *Customizable Format and Style*: Define custom log message formats and styles using the [[https://github.com/fmtlib/fmt][fmt]] library.
+- *Global and Instance Loggers*: Use the global logger or create your own logger instances for specific tasks.
+- *Serializable Log Messages*: Serialize and deserialize log messages for storage or transmission.
+
+* Requiremenets
+- C++ 20 or higher
+- CMake 2.30 or higher
+- The [[https://github.com/fmtlib/fmt][fmt]] library
+- ninja [optional]
+
+* Installation
+1. Clone the repository recursively.
+#+begin_src bash
+git clone --recurse-submodules https://github.com/NeddX/Logex
+#+end_src
+
+2. Generate and build with the handy build script.
+#+begin_src bash
+Scripts/build.py --list # To list available presets
+Scripts/build.py --preset=windows-llvm-any-debug # Generate debug configuration for windows for any architecture with ninja and clang as the compiler.
+#+end_src
+
+3. Link with another CMake target
+#+begin_src cmake
+target_link_libraries(my_target Logex)
+#+end_src
+
+4. Include the header
+#+begin_src cpp
+#include <Logger.h>
+#+end_src
+
+* Basic usage
+Logging to the global logger.
+#+begin_src cpp
+#include <Logger.h>
+
+auto main() -> int
+{
+    lgx::Log(lgx::Level::Info, "Nature's abomination sweat milk.");
+    lgx::Log(lgx::Level::Warn, "Sleep ddeprivation is bad.");
+
+    // Or use the alias functions.
+    lgx::Info("Shorter");
+    lgx::Warn("Faster");
+    return 0;
+}
+#+end_src
+
+Format and customize using fmt.
+#+begin_src cpp
+#include <cstdlib>
+#include <Logger.h>
+
+auto main() -> int
+{
+    // For customizability use the Log(...) function's overloads.
+    lgx::Log(lgx::Level::Info, fmt::fg(fmt::color::aqua), "Not so random number: {}", std::srand() % 256);
+    return 0;
+}
+#+end_src
+
+Create separate logger instances with their own properties.
+#+begin_src cpp
+#include <Logger.h>
+
+auto main() -> int
+{
+    const auto editor_logger = lgx::Logger{lgx::Logger::Properties { .defaultPrefix = "Editor", .format = "({datetime})-({prefix})-({level}): {msg}\n" }};
+    editor_logger.Log(lgx::Level::Info, "Editor logger");
+
+    const auto engine_logger = lgx::Logger{lgx::Logger::Properties { .defaultPrefix = "Engine", .format = "({datetime})-({prefix})-({level}): {msg}\n" }};
+    engine_logger.Log(lgx::Level::Info, "Engine logger");
+    return 0;
+}
+#+end_src
+
+Log to different output streams.
+#+begin_src cpp
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <Logger.h>
+
+auto main() -> int
+{
+    // Any derivatians of std::ostream will work.
+    auto fs = std::ofstream("./log.txt");
+    const auto file_logger =
+        lgx::Logger{ lgx::Logger::Properties{ .outputStream                = fs,
+                                              .serializeOnNonStdoutStreams = true,
+                                              .defaultPrefix               = "log.txt",
+                                              .format = "[{datetime}] [{level}] ({prefix}) >> {msg}\n" } };
+
+    file_logger.Info("Current file: {}", __FILE__);
+    file_logger.Warn("A Warning.");
+    file_logger.Error("Error code: {}", std::rand() % 256);
+    file_logger.Fatal("A Fatal error has occured.");
+    return 0;
+}
+#+end_src
+
+* License
+This project is licensed under the MIT License - see the =LICENSE= file for details.
