@@ -6,7 +6,7 @@ Logex is a lightweight, easy-to-use C++ logger designed for simple and effective
 
 * Features
 - *Simple Logging Interface*: Log messages with different severity levels: =Info=, =Warn=, =Error= and =Fatal=.
-- *Flexible Output Streams*: Log to various streams like std::ostream, std::ofstream, std::stringstream, etc.
+- *Flexible Output Streams*: Log to various streams like =std::ostream=, =std::ofstream=, =std::stringstream=, etc.
 - *Customizable Format and Style*: Define custom log message formats and styles using the [[https://github.com/fmtlib/fmt][fmt]] library.
 - *Global and Instance Loggers*: Use the global logger or create your own logger instances for specific tasks.
 - *Serializable Log Messages*: Serialize and deserialize log messages for storage or transmission.
@@ -46,8 +46,8 @@ Logging to the global logger.
 
 auto main() -> int
 {
-    lgx::Log(lgx::Level::Info, "Nature's abomination sweat milk.");
-    lgx::Log(lgx::Level::Warn, "Sleep ddeprivation is bad.");
+    lgx::Log(lgx::Level::Info, "Nature's abomination sweats milk.");
+    lgx::Log(lgx::Level::Warn, "Sleep deprivation is bad.");
 
     // Or use the alias functions.
     lgx::Info("Shorter");
