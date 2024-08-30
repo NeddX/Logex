@@ -3,30 +3,50 @@
 
 #include <Logger.h>
 
-template <typename... TArgs>
-struct A
-{
-};
-
 auto main() -> int
 {
-    auto a = A();
+    // Create logger instances.
+    const auto logger = lgx::Logger(lgx::Logger::Properties{ .defaultPrefix = "main.cpp" });
 
-    auto logger = logex::Logger(logex::Logger::Properties{
-
-    });
-
-    logger.Info("An Info where {} + {} is {}.", 5, 5, 5 + 5);
+    logger.Info("Current file: {}", __FILE__);
     logger.Warn("A Warning.");
-    logger.Error("An Error.");
+    logger.Error("Error code: {}", std::rand() % 256);
     logger.Fatal("A Fatal error has occured.");
 
-    auto fs = std::ofstream("./log.txt", std::ios::out);
-    auto file_logger =
-        logex::Logger(logex::Logger::Properties{ .output = fs, .format = "[{datetime}] [{type}] >> {msg}\n" });
+    // Log to different streams e.g., std::ofstream, std::fstream, std::stringstream, std::ostringstream etc...
+    auto       fs = std::ofstream("./log.txt");
+    const auto file_logger =
+        lgx::Logger{ lgx::Logger::Properties{ .outputStream                = fs,
+                                              .serializeOnNonStdoutStreams = true,
+                                              .defaultPrefix               = "log.txt",
+                                              .format = "[{datetime}] [{level}] ({prefix}) >> {msg}\n" } };
 
-    file_logger.Info("An Info in a file.");
-    file_logger.Warn("A Warning in a file.");
-    file_logger.Error("An Error in a file.");
-    file_logger.Fatal("A fatal error in a file.");
+    file_logger.Info("Current file: {}", __FILE__);
+    file_logger.Warn("A Warning.");
+    file_logger.Error("Error code: {}", std::rand() % 256);
+    file_logger.Fatal("A Fatal error has occured.");
+
+    // Log using the global logger.
+    lgx::Log(lgx::Level::Info, "The global logger");
+    lgx::Log("App", lgx::Level::Warn, fmt::fg(fmt::color::orange) | fmt::bg(fmt::color::dark_blue),
+             "Fancy customization using fmt.");
+
+    // Serializable log messages.
+    const auto serialized_log = lgx::LogMsg::ToString(
+        lgx::LogMsg{ .level   = lgx::Level::Error,
+                     .message = fmt::format("An error occured in file: {}", __FILE__),
+                     .style   = fmt::fg(fmt::color::black) | fmt::emphasis::bold | fmt::bg(fmt::color::aqua) });
+
+    // Customize the global logger.
+    // You can also customize logger instances as well by calling the same method
+    // e.g., file_logger.SetDefaultInfoStyle(fmt::fg(fmt::color::dark_green));
+    lgx::SetDefaultInfoStyle(fmt::fg(fmt::color::dark_green));
+    lgx::SetDefaultWarnStyle(fmt::fg(fmt::color::yellow));
+    lgx::SetDefaultErrorStyle(fmt::fg(fmt::color::red));
+    lgx::SetDefaultFatalStyle(fmt::fg(fmt::color::dark_red));
+    lgx::SetDefaultPrefix("App");
+
+    lgx::Log(lgx::Level::Info, "Serialized (to string) log message: {}", serialized_log);
+    lgx::LogMsg deserialized_log = lgx::LogMsg::FromString(serialized_log);
+    lgx::Log(deserialized_log);
 }
