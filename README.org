@@ -78,8 +78,10 @@ auto main() -> int
     const auto editor_logger = lgx::Logger{lgx::Logger::Properties { .defaultPrefix = "Editor", .format = "({datetime})-({prefix})-({level}): {msg}\n" }};
     editor_logger.Log(lgx::Level::Info, "Editor logger");
 
-    const auto engine_logger = lgx::Logger{lgx::Logger::Properties { .defaultPrefix = "Engine", .format = "({datetime})-({prefix})-({level}): {msg}\n" }};
-    engine_logger.Log(lgx::Level::Info, "Engine logger");
+    // Or use the global registry.
+    const auto engine_logger = lgx::New("engine_logger", lgx::Logger{lgx::Logger::Properties { .defaultPrefix = "Engine", .format = "({datetime})-({prefix})-({level}): {msg}\n" }});
+    lgx::Get("engine_logger").Log(lgx::Level::Info, "Engine logger");
+
     return 0;
 }
 #+end_src

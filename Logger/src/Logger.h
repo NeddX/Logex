@@ -14,9 +14,10 @@ namespace lgx {
             std::string     format                      = "[{datetime}] [{level}] ({prefix}): {msg}\n";
             fmt::text_style defaultInfoStyle            = fmt::bg(fmt::color::dark_green) | fmt::fg(fmt::color::white);
             fmt::text_style defaultWarnStyle            = fmt::bg(fmt::color::orange) | fmt::fg(fmt::color::black);
-            fmt::text_style defaultErrorStyle           = fmt::bg(fmt::color::red) | fmt::fg(fmt::color::white);
+            fmt::text_style defaultErrorStyle =
+                fmt::emphasis::italic | fmt::bg(fmt::color::red) | fmt::fg(fmt::color::white);
             fmt::text_style defaultFatalStyle =
-                fmt::emphasis ::strikethrough | fmt::bg(fmt::color::dark_red) | fmt::fg(fmt::color::white);
+                fmt::emphasis::italic | fmt::bg(fmt::color::dark_red) | fmt::fg(fmt::color::white);
         };
 
     private:
@@ -234,8 +235,20 @@ namespace lgx {
     };
 
     namespace internal {
-        extern Logger g_GlobalLogger;
+        extern Logger                                  g_GlobalLogger;
+        extern std::unordered_map<std::string, Logger> g_Loggers;
     } // namespace internal
+
+    [[nodiscard]] inline auto Get(const std::string& loggerName) -> Logger&
+    {
+        return internal::g_Loggers.at(loggerName);
+    }
+
+    inline auto New(const std::string& name, const Logger::Properties& properties) noexcept -> Logger&
+    {
+        auto [it, con] = internal::g_Loggers.emplace(name, properties);
+        return it->second;
+    }
 
     [[nodiscard]] inline auto GetDefaultPrefix() noexcept
     {

@@ -37,6 +37,10 @@ auto main() -> int
                      .message = fmt::format("An error occured in file: {}", __FILE__),
                      .style   = fmt::fg(fmt::color::black) | fmt::emphasis::bold | fmt::bg(fmt::color::aqua) });
 
+    // Create a logger instance inside the global registry.
+    lgx::New("debug_logger", lgx::Logger::Properties{ .defaultPrefix = "DebugLogger" });
+    lgx::Get("debug_logger").Log(lgx::Level::Info, "Debug logger");
+
     // Customize the global logger.
     // You can also customize logger instances as well by calling the same method
     // e.g., file_logger.SetDefaultInfoStyle(fmt::fg(fmt::color::dark_green));
