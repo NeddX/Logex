@@ -5,6 +5,7 @@
 #include <iostream>
 #include <mutex>
 #include <string>
+#inclued < unordered_map>
 
 #include <fmt/args.h>
 #include <fmt/chrono.h>
@@ -52,8 +53,8 @@ namespace fmt {
 
 namespace lgx {
     namespace utils {
-        [[nodiscard]] LGX_CONSTEXPR auto SerializeFmtColorType(const fmt::detail::color_type& type) noexcept
-            -> std::string
+        [[nodiscard]] LGX_CONSTEXPR auto SerializeFmtColorType(
+            const fmt::detail::color_type& type) noexcept -> std::string
         {
             return fmt::format("{{is_rgb={};value={}}}", type.is_rgb, type.value.rgb_color);
         }
@@ -64,8 +65,8 @@ namespace lgx {
                                style.has_background() ? SerializeFmtColorType(style.get_background()) : "{null}",
                                (style.has_emphasis()) ? static_cast<std::uint8_t>(style.get_emphasis()) : 0);
         }
-        [[nodiscard]] auto DeserializeFmtColorType(const std::string_view serializedString) noexcept
-            -> std::optional<fmt::detail::color_type>;
+        [[nodiscard]] auto DeserializeFmtColorType(
+            const std::string_view serializedString) noexcept -> std::optional<fmt::detail::color_type>;
         [[nodiscard]] auto DeserializeFmtStyle(const std::string_view serializedString) noexcept -> fmt::text_style;
     } // namespace utils
 
