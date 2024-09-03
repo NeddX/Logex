@@ -75,11 +75,11 @@ Create separate logger instances with their own properties.
 
 auto main() -> int
 {
-    const auto editor_logger = lgx::Logger{lgx::Logger::Properties { .defaultPrefix = "Editor", .format = "({datetime})-({prefix})-({level}): {msg}\n" }};
+    const auto editor_logger = lgx::Logger{lgx::Logger::Properties { .defaultPrefix = "Editor", .defaultStyle = { .format = "({datetime})-({prefix})-({level}): {msg}\n" }}};
     editor_logger.Log(lgx::Level::Info, "Editor logger");
 
     // Or use the global registry.
-    const auto engine_logger = lgx::New("engine_logger", lgx::Logger{lgx::Logger::Properties { .defaultPrefix = "Engine", .format = "({datetime})-({prefix})-({level}): {msg}\n" }});
+    const auto engine_logger = lgx::New("engine_logger", lgx::Logger{lgx::Logger::Properties { .defaultPrefix = "Engine", .defaultStyle = { .format = "({datetime})-({prefix})-({level}): {msg}\n" }}});
     lgx::Get("engine_logger").Log(lgx::Level::Info, "Engine logger");
 
     return 0;
@@ -98,10 +98,10 @@ auto main() -> int
     // Any derivatians of std::ostream will work.
     auto fs = std::ofstream("./log.txt");
     const auto file_logger =
-        lgx::Logger{ lgx::Logger::Properties{ .outputStream                = fs,
-                                              .serializeOnNonStdoutStreams = true,
-                                              .defaultPrefix               = "log.txt",
-                                              .format = "[{datetime}] [{level}] ({prefix}) >> {msg}\n" } };
+        lgx::Logger{ lgx::Logger::Properties{ .outputStreams                = { &fs },
+                                              .serializeOnNonStdoutStreams  = true,
+                                              .defaultPrefix                = "log.txt",
+                                              .defaultStyle { .format = "[{datetime}] [{level}] ({prefix}) >> {msg}\n" }}};
 
     file_logger.Info("Current file: {}", __FILE__);
     file_logger.Warn("A Warning.");
