@@ -18,7 +18,7 @@ namespace lgx {
         {
             std::vector<std::ostream*> outputStreams               = { &std::cout };
             bool                       unicodeSymbols              = false;
-            bool                       serializeOnNonStdoutStreams = false;
+            bool                       serializeToNonStdoutStreams = false;
             std::string                defaultPrefix               = "App";
             std::string                dateTimeFormat              = "%Y-%m-%d %H:%M:%S";
             DefaultStyle               defaultStyle                = DefaultStyle{};
@@ -141,7 +141,7 @@ namespace lgx {
                     fmt::vprint(stdout, log.style, m_Properties.defaultStyle.format, arg_store);
                 else
                 {
-                    if (m_Properties.serializeOnNonStdoutStreams)
+                    if (m_Properties.serializeToNonStdoutStreams)
                         *stream << LogMsg::ToString(log) << '\n';
                     else
                         *stream << fmt::vformat(m_Properties.defaultStyle.format, arg_store);
@@ -182,7 +182,7 @@ namespace lgx {
                     fmt::vprint(stdout, style, m_Properties.defaultStyle.format, arg_store);
                 else
                 {
-                    if (m_Properties.serializeOnNonStdoutStreams)
+                    if (m_Properties.serializeToNonStdoutStreams)
                     {
                         const auto log = LogMsg{ .level   = level,
                                                  .message = fmt::vformat(m_Properties.defaultStyle.format, arg_store),

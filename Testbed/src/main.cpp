@@ -17,7 +17,7 @@ auto main() -> int
     auto       fs = std::ofstream("./log.txt");
     const auto file_logger =
         lgx::Logger{ lgx::Logger::Properties{ .outputStreams               = { &fs },
-                                              .serializeOnNonStdoutStreams = true,
+                                              .serializeToNonStdoutStreams = true,
                                               .defaultPrefix               = "log.txt",
                                               .defaultStyle = { .format = "[{datetime}] [{level}] ({prefix}) >> {msg}\n" } } };
 
