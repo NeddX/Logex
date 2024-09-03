@@ -16,10 +16,10 @@ auto main() -> int
     // Log to different streams e.g., std::ofstream, std::fstream, std::stringstream, std::ostringstream etc...
     auto       fs = std::ofstream("./log.txt");
     const auto file_logger =
-        lgx::Logger{ lgx::Logger::Properties{ .outputStream                = fs,
+        lgx::Logger{ lgx::Logger::Properties{ .outputStreams               = { &fs },
                                               .serializeOnNonStdoutStreams = true,
                                               .defaultPrefix               = "log.txt",
-                                              .format = "[{datetime}] [{level}] ({prefix}) >> {msg}\n" } };
+                                              .defaultStyle = { .format = "[{datetime}] [{level}] ({prefix}) >> {msg}\n" } } };
 
     file_logger.Info("Current file: {}", __FILE__);
     file_logger.Warn("A Warning.");

@@ -154,7 +154,7 @@ namespace lgx {
                 msg.level = Fatal;
         }
 
-        const auto style_start = serializedString.find("style=") + sizeof("style=") - 1;
+        const auto style_start = serializedString.find("defaultStyle=") + sizeof("defaultStyle=") - 1;
         if (style_start != std::string::npos)
         {
             std::list<char> braces;
@@ -182,7 +182,7 @@ namespace lgx {
     [[nodiscard]] auto LogMsg::ToString(const LogMsg& log) noexcept -> std::string
     {
         return fmt::format(
-            "{{message={};prefix={};level={};style={}}}", (log.message.empty()) ? "null" : '\'' + log.message + '\'',
+            "{{message={};prefix={};level={};defaultStyle={}}}", (log.message.empty()) ? "null" : '\'' + log.message + '\'',
             (log.prefix) ? '\'' + *log.prefix + '\'' : "null", log.level, utils::SerializeFmtStyle(log.style));
     }
 } // namespace lgx

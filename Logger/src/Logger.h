@@ -4,20 +4,24 @@ namespace lgx {
     class Logger
     {
     public:
-        struct Properties
+        struct DefaultStyle
         {
-            std::ostream&   outputStream                = std::cout;
-            bool            unicodeSymbols              = false;
-            bool            serializeOnNonStdoutStreams = false;
-            std::string     defaultPrefix               = "App";
-            std::string     dateTimeFormat              = "%Y-%m-%d %H:%M:%S";
-            std::string     format                      = "[{datetime}] [{level}] ({prefix}): {msg}\n";
-            fmt::text_style defaultInfoStyle            = fmt::bg(fmt::color::dark_green) | fmt::fg(fmt::color::white);
-            fmt::text_style defaultWarnStyle            = fmt::bg(fmt::color::orange) | fmt::fg(fmt::color::black);
+            std::string     format           = "[{datetime}] [{level}] ({prefix}): {msg}\n";
+            fmt::text_style defaultInfoStyle = fmt::bg(fmt::color::dark_green) | fmt::fg(fmt::color::white);
+            fmt::text_style defaultWarnStyle = fmt::bg(fmt::color::orange) | fmt::fg(fmt::color::black);
             fmt::text_style defaultErrorStyle =
                 fmt::emphasis::italic | fmt::bg(fmt::color::red) | fmt::fg(fmt::color::white);
             fmt::text_style defaultFatalStyle =
                 fmt::emphasis::italic | fmt::bg(fmt::color::dark_red) | fmt::fg(fmt::color::white);
+        };
+        struct Properties
+        {
+            std::vector<std::ostream*> outputStreams               = { &std::cout };
+            bool                       unicodeSymbols              = false;
+            bool                       serializeOnNonStdoutStreams = false;
+            std::string                defaultPrefix               = "App";
+            std::string                dateTimeFormat              = "%Y-%m-%d %H:%M:%S";
+            DefaultStyle               defaultStyle                = DefaultStyle{};
         };
 
     private:
@@ -33,22 +37,22 @@ namespace lgx {
         {
             return m_Properties.dateTimeFormat;
         }
-        [[nodiscard]] inline auto GetFormat() const noexcept -> std::string { return m_Properties.format; }
+        [[nodiscard]] inline auto GetFormat() const noexcept -> std::string { return m_Properties.defaultStyle.format; }
         [[nodiscard]] inline auto GetDefaultInfoStyle() const noexcept -> fmt::text_style
         {
-            return m_Properties.defaultInfoStyle;
+            return m_Properties.defaultStyle.defaultInfoStyle;
         }
         [[nodiscard]] inline auto GetDefaultWarnStyle() const noexcept -> fmt::text_style
         {
-            return m_Properties.defaultWarnStyle;
+            return m_Properties.defaultStyle.defaultWarnStyle;
         }
         [[nodiscard]] inline auto GetDefaultErrorStyle() const noexcept -> fmt::text_style
         {
-            return m_Properties.defaultErrorStyle;
+            return m_Properties.defaultStyle.defaultErrorStyle;
         }
         [[nodiscard]] inline auto GetDefaultFatalStyle() const noexcept -> fmt::text_style
         {
-            return m_Properties.defaultFatalStyle;
+            return m_Properties.defaultStyle.defaultFatalStyle;
         }
         inline void SetDefaultPrefix(const std::string_view newDefaultPrefix) noexcept
         {
@@ -58,22 +62,22 @@ namespace lgx {
         {
             m_Properties.dateTimeFormat = newDateTimeFormat;
         }
-        inline void SetFormat(const std::string_view newFormat) noexcept { m_Properties.format = newFormat; }
+        inline void SetFormat(const std::string_view newFormat) noexcept { m_Properties.defaultStyle.format = newFormat; }
         inline void SetDefaultInfoStyle(const fmt::text_style& newDefaultInfoStyle) noexcept
         {
-            m_Properties.defaultInfoStyle = newDefaultInfoStyle;
+            m_Properties.defaultStyle.defaultInfoStyle = newDefaultInfoStyle;
         }
         inline void SetDefaultWarnStyle(const fmt::text_style& newDefaultWarnStyle) noexcept
         {
-            m_Properties.defaultWarnStyle = newDefaultWarnStyle;
+            m_Properties.defaultStyle.defaultWarnStyle = newDefaultWarnStyle;
         }
         inline void SetDefaultErrorStyle(const fmt::text_style& newDefaultErrorStyle) noexcept
         {
-            m_Properties.defaultErrorStyle = newDefaultErrorStyle;
+            m_Properties.defaultStyle.defaultErrorStyle = newDefaultErrorStyle;
         }
         inline void SetDefaultFatalStyle(const fmt::text_style& newDefaultFatalStyle) noexcept
         {
-            m_Properties.defaultFatalStyle = newDefaultFatalStyle;
+            m_Properties.defaultStyle.defaultFatalStyle = newDefaultFatalStyle;
         }
 
     public:
@@ -90,10 +94,10 @@ namespace lgx {
             {
                 using enum Level;
 
-                case Info: return m_Properties.defaultInfoStyle;
-                case Warn: return m_Properties.defaultWarnStyle;
-                case Error: return m_Properties.defaultErrorStyle;
-                case Fatal: return m_Properties.defaultFatalStyle;
+                case Info: return m_Properties.defaultStyle.defaultInfoStyle;
+                case Warn: return m_Properties.defaultStyle.defaultWarnStyle;
+                case Error: return m_Properties.defaultStyle.defaultErrorStyle;
+                case Fatal: return m_Properties.defaultStyle.defaultFatalStyle;
             }
         }
 
@@ -115,32 +119,33 @@ namespace lgx {
 
             auto arg_store = fmt::dynamic_format_arg_store<fmt::format_context>{};
 
-            if (ContainsPlaceholder(m_Properties.format, "{datetime}"))
+            if (ContainsPlaceholder(m_Properties.defaultStyle.format, "{datetime}"))
             {
                 arg_store.push_back(
                     fmt::arg("datetime", fmt::format(fmt::runtime("{:" + m_Properties.dateTimeFormat + '}'),
                                                      fmt::localtime(time_obj))));
             }
-            if (ContainsPlaceholder(m_Properties.format, "{level}"))
+            if (ContainsPlaceholder(m_Properties.defaultStyle.format, "{level}"))
                 arg_store.push_back(fmt::arg("level", log.level));
-            if (ContainsPlaceholder(m_Properties.format, "{prefix}"))
+            if (ContainsPlaceholder(m_Properties.defaultStyle.format, "{prefix}"))
                 arg_store.push_back(fmt::arg("prefix", log.prefix.value_or(m_Properties.defaultPrefix)));
-            if (!ContainsPlaceholder(m_Properties.format, "{msg}"))
+            if (!ContainsPlaceholder(m_Properties.defaultStyle.format, "{msg}"))
                 throw std::invalid_argument("A message is always required.");
 
             // Always push the message argument
             arg_store.push_back(fmt::arg("msg", log.message));
 
-            if (&m_Properties.outputStream == &std::cout)
+            for (const auto& stream : m_Properties.outputStreams)
             {
-                fmt::vprint(stdout, log.style, m_Properties.format, arg_store);
-            }
-            else
-            {
-                if (m_Properties.serializeOnNonStdoutStreams)
-                    m_Properties.outputStream << LogMsg::ToString(log) << '\n';
+                if (stream == &std::cout)
+                    fmt::vprint(stdout, log.style, m_Properties.defaultStyle.format, arg_store);
                 else
-                    m_Properties.outputStream << fmt::vformat(m_Properties.format, arg_store);
+                {
+                    if (m_Properties.serializeOnNonStdoutStreams)
+                        *stream << LogMsg::ToString(log) << '\n';
+                    else
+                        *stream << fmt::vformat(m_Properties.defaultStyle.format, arg_store);
+                }
             }
         }
         template <typename... TArgs>
@@ -155,38 +160,39 @@ namespace lgx {
 
             auto arg_store = fmt::dynamic_format_arg_store<fmt::format_context>{};
 
-            if (ContainsPlaceholder(m_Properties.format, "{datetime}"))
+            if (ContainsPlaceholder(m_Properties.defaultStyle.format, "{datetime}"))
             {
                 arg_store.push_back(
                     fmt::arg("datetime", fmt::format(fmt::runtime("{:" + m_Properties.dateTimeFormat + '}'),
                                                      fmt::localtime(time_obj))));
             }
-            if (ContainsPlaceholder(m_Properties.format, "{level}"))
+            if (ContainsPlaceholder(m_Properties.defaultStyle.format, "{level}"))
                 arg_store.push_back(fmt::arg("level", level));
-            if (ContainsPlaceholder(m_Properties.format, "{prefix}"))
+            if (ContainsPlaceholder(m_Properties.defaultStyle.format, "{prefix}"))
                 arg_store.push_back(fmt::arg("prefix", prefix));
-            if (!ContainsPlaceholder(m_Properties.format, "{msg}"))
+            if (!ContainsPlaceholder(m_Properties.defaultStyle.format, "{msg}"))
                 throw std::invalid_argument("A message is always required.");
 
             // Always push the message argument
             arg_store.push_back(fmt::arg("msg", fmt::format(fmt::runtime(fmt), std::forward<TArgs>(args)...)));
 
-            if (&m_Properties.outputStream == &std::cout)
+            for (const auto& stream : m_Properties.outputStreams)
             {
-                fmt::vprint(stdout, style, m_Properties.format, arg_store);
-            }
-            else
-            {
-                if (m_Properties.serializeOnNonStdoutStreams)
-                {
-                    const auto log = LogMsg{ .level   = level,
-                                             .message = fmt::vformat(m_Properties.format, arg_store),
-                                             .prefix  = std::string{ prefix },
-                                             .style   = style };
-                    m_Properties.outputStream << LogMsg::ToString(log) << '\n';
-                }
+                if (stream == &std::cout)
+                    fmt::vprint(stdout, style, m_Properties.defaultStyle.format, arg_store);
                 else
-                    m_Properties.outputStream << fmt::vformat(m_Properties.format, arg_store);
+                {
+                    if (m_Properties.serializeOnNonStdoutStreams)
+                    {
+                        const auto log = LogMsg{ .level   = level,
+                                                 .message = fmt::vformat(m_Properties.defaultStyle.format, arg_store),
+                                                 .prefix  = std::string{ prefix },
+                                                 .style   = style };
+                        *stream << LogMsg::ToString(log) << '\n';
+                    }
+                    else
+                        *stream << fmt::vformat(m_Properties.defaultStyle.format, arg_store);
+                }
             }
         }
         template <typename... TArgs>
