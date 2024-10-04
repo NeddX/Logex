@@ -6,6 +6,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <list>
 
 #include <fmt/args.h>
 #include <fmt/chrono.h>
