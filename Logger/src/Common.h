@@ -3,10 +3,11 @@
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
+#include <list>
 #include <mutex>
 #include <string>
 #include <unordered_map>
-#include <list>
+#include <charconv>
 
 #include <fmt/args.h>
 #include <fmt/chrono.h>
@@ -14,11 +15,8 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 
-#ifndef _MSC_VER
-#define LGX_CONSTEXPR constexpr
-#else
+// TODO: Remove this macro and replace its instances with just inline.
 #define LGX_CONSTEXPR inline
-#endif
 
 namespace lgx {
     enum class Level : std::uint8_t
