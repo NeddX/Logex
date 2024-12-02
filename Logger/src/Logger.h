@@ -19,6 +19,7 @@ namespace lgx {
             std::vector<std::ostream*> outputStreams               = { &std::cout };
             bool                       unicodeSymbols              = false;
             bool                       serializeToNonStdoutStreams = false;
+            bool                       flushOnLog                  = false;
             std::string                defaultPrefix               = "App";
             std::string                dateTimeFormat              = "%Y-%m-%d %H:%M:%S";
             DefaultStyle               defaultStyle                = DefaultStyle{};
@@ -29,6 +30,10 @@ namespace lgx {
         mutable std::mutex m_Guard;
 
     public:
+        [[nodiscard]] inline auto GetOutputStreams() const noexcept -> const std::vector<std::ostream*>&
+        {
+            return m_Properties.outputStreams;
+        }
         [[nodiscard]] inline auto GetDefaultPrefix() const noexcept -> std::string
         {
             return m_Properties.defaultPrefix;
@@ -54,28 +59,35 @@ namespace lgx {
         {
             return m_Properties.defaultStyle.defaultFatalStyle;
         }
-        inline void SetDefaultPrefix(const std::string_view newDefaultPrefix) noexcept
+        inline auto SetOutputStreams(std::vector<std::ostream*> oss) noexcept -> void
+        {
+            m_Properties.outputStreams = std::move(oss);
+        }
+        inline auto SetDefaultPrefix(const std::string_view newDefaultPrefix) noexcept -> void
         {
             m_Properties.defaultPrefix = newDefaultPrefix;
         }
-        inline void SetDateTimeFormat(const std::string_view newDateTimeFormat) noexcept
+        inline auto SetDateTimeFormat(const std::string_view newDateTimeFormat) noexcept -> void
         {
             m_Properties.dateTimeFormat = newDateTimeFormat;
         }
-        inline void SetFormat(const std::string_view newFormat) noexcept { m_Properties.defaultStyle.format = newFormat; }
-        inline void SetDefaultInfoStyle(const fmt::text_style& newDefaultInfoStyle) noexcept
+        inline auto SetFormat(const std::string_view newFormat) noexcept -> void
+        {
+            m_Properties.defaultStyle.format = newFormat;
+        }
+        inline auto SetDefaultInfoStyle(const fmt::text_style& newDefaultInfoStyle) noexcept -> void
         {
             m_Properties.defaultStyle.defaultInfoStyle = newDefaultInfoStyle;
         }
-        inline void SetDefaultWarnStyle(const fmt::text_style& newDefaultWarnStyle) noexcept
+        inline auto SetDefaultWarnStyle(const fmt::text_style& newDefaultWarnStyle) noexcept -> void
         {
             m_Properties.defaultStyle.defaultWarnStyle = newDefaultWarnStyle;
         }
-        inline void SetDefaultErrorStyle(const fmt::text_style& newDefaultErrorStyle) noexcept
+        inline auto SetDefaultErrorStyle(const fmt::text_style& newDefaultErrorStyle) noexcept -> void
         {
             m_Properties.defaultStyle.defaultErrorStyle = newDefaultErrorStyle;
         }
-        inline void SetDefaultFatalStyle(const fmt::text_style& newDefaultFatalStyle) noexcept
+        inline auto SetDefaultFatalStyle(const fmt::text_style& newDefaultFatalStyle) noexcept -> void
         {
             m_Properties.defaultStyle.defaultFatalStyle = newDefaultFatalStyle;
         }
@@ -109,7 +121,8 @@ namespace lgx {
         }
 
     public:
-        void Log(const LogMsg& log) const
+        auto Flush() const -> void {}
+        auto Log(const LogMsg& log) const -> void
         {
             const std::lock_guard<std::mutex> lock{ m_Guard };
 
@@ -145,12 +158,15 @@ namespace lgx {
                         *stream << LogMsg::ToString(log) << '\n';
                     else
                         *stream << fmt::vformat(m_Properties.defaultStyle.format, arg_store);
+
+                    if (m_Properties.flushOnLog)
+                        stream->flush();
                 }
             }
         }
         template <typename... TArgs>
-        void Log(const std::string_view prefix, const Level level, const fmt::text_style& style,
-                 const std::string_view fmt, TArgs&&... args) const
+        auto Log(const std::string_view prefix, const Level level, const fmt::text_style& style,
+                 const std::string_view fmt, TArgs&&... args) const -> void
         {
             const std::lock_guard<std::mutex> lock{ m_Guard };
 
@@ -192,49 +208,54 @@ namespace lgx {
                     }
                     else
                         *stream << fmt::vformat(m_Properties.defaultStyle.format, arg_store);
+
+                    if (m_Properties.flushOnLog)
+                        stream->flush();
                 }
             }
         }
         template <typename... TArgs>
-        void Log(LogMsg log, const std::string_view fmt, TArgs&&... args) const
+        auto Log(LogMsg log, const std::string_view fmt, TArgs&&... args) const -> void
         {
             Log(log.prefix.value_or(m_Properties.defaultPrefix), log.level, log.style, fmt,
                 std::forward<TArgs>(args)...);
         }
         template <typename... TArgs>
-        void Log(const Level level, const std::string_view fmt, TArgs&&... args) const
+        auto Log(const Level level, const std::string_view fmt, TArgs&&... args) const -> void
         {
             Log(m_Properties.defaultPrefix, level, DefaultStyleFromLevel(level), fmt, std::forward<TArgs>(args)...);
         }
         template <typename... TArgs>
-        void Log(const std::string_view prefix, const Level level, const std::string_view fmt, TArgs&&... args) const
+        auto Log(const std::string_view prefix, const Level level, const std::string_view fmt, TArgs&&... args) const
+            -> void
         {
             Log(prefix, level, DefaultStyleFromLevel(level), fmt, std::forward<TArgs>(args)...);
         }
         template <typename... TArgs>
-        void Log(const Level level, const fmt::text_style& style, const std::string_view fmt, TArgs&&... args) const
+        auto Log(const Level level, const fmt::text_style& style, const std::string_view fmt, TArgs&&... args) const
+            -> void
         {
             Log(m_Properties.defaultPrefix, level, style, fmt, std::forward<TArgs>(args)...);
         }
 
     public:
         template <typename... TArgs>
-        void Info(const std::string_view fmt, TArgs&&... args) const
+        auto Info(const std::string_view fmt, TArgs&&... args) const -> void
         {
             Log(Level::Info, fmt, std::forward<TArgs>(args)...);
         }
         template <typename... TArgs>
-        void Warn(const std::string_view fmt, TArgs&&... args) const
+        auto Warn(const std::string_view fmt, TArgs&&... args) const -> void
         {
             Log(Level::Warn, fmt, std::forward<TArgs>(args)...);
         }
         template <typename... TArgs>
-        void Error(const std::string_view fmt, TArgs&&... args) const
+        auto Error(const std::string_view fmt, TArgs&&... args) const -> void
         {
             Log(Level::Error, fmt, std::forward<TArgs>(args)...);
         }
         template <typename... TArgs>
-        void Fatal(const std::string_view fmt, TArgs&&... args) const
+        auto Fatal(const std::string_view fmt, TArgs&&... args) const -> void
         {
             Log(Level::Fatal, fmt, std::forward<TArgs>(args)...);
         }
@@ -326,62 +347,68 @@ namespace lgx {
         internal::g_GlobalLogger.SetDefaultFatalStyle(style);
     }
 
-    inline void Log(const LogMsg& log)
+    inline auto Flush() -> void
+    {
+        internal::g_GlobalLogger.Flush();
+    }
+
+    inline auto Log(const LogMsg& log) -> void
     {
         internal::g_GlobalLogger.Log(log);
     }
 
     template <typename... TArgs>
-    inline void Log(const std::string_view prefix, const Level level, const fmt::text_style& style,
-                    const std::string_view fmt, TArgs&&... args)
+    inline auto Log(const std::string_view prefix, const Level level, const fmt::text_style& style,
+                    const std::string_view fmt, TArgs&&... args) -> void
     {
         internal::g_GlobalLogger.Log(prefix, level, style, fmt, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
-    inline void Log(const LogMsg& log, const std::string_view fmt, TArgs&&... args)
+    inline auto Log(const LogMsg& log, const std::string_view fmt, TArgs&&... args) -> void
     {
         internal::g_GlobalLogger.Log(log, fmt, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
-    inline void Log(const Level level, const std::string_view fmt, TArgs&&... args)
+    inline auto Log(const Level level, const std::string_view fmt, TArgs&&... args) -> void
     {
         internal::g_GlobalLogger.Log(level, fmt, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
-    inline void Log(const std::string_view prefix, const Level level, const std::string_view fmt, TArgs&&... args)
+    inline auto Log(const std::string_view prefix, const Level level, const std::string_view fmt, TArgs&&... args)
+        -> void
     {
         internal::g_GlobalLogger.Log(prefix, level, fmt, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
-    void Log(const Level level, const fmt::text_style& style, const std::string_view fmt, TArgs&&... args)
+    auto Log(const Level level, const fmt::text_style& style, const std::string_view fmt, TArgs&&... args) -> void
     {
         internal::g_GlobalLogger.Log(level, style, fmt, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
-    inline void Info(const std::string_view fmt, TArgs&&... args)
+    inline auto Info(const std::string_view fmt, TArgs&&... args) -> void
     {
         internal::g_GlobalLogger.Info(fmt, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
-    inline void Warn(const std::string_view fmt, TArgs&&... args)
+    inline auto Warn(const std::string_view fmt, TArgs&&... args) -> void
     {
         internal::g_GlobalLogger.Warn(fmt, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
-    inline void Error(const std::string_view fmt, TArgs&&... args)
+    inline auto Error(const std::string_view fmt, TArgs&&... args) -> void
     {
         internal::g_GlobalLogger.Error(fmt, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
-    inline void Fatal(const std::string_view fmt, TArgs&&... args)
+    inline auto Fatal(const std::string_view fmt, TArgs&&... args) -> void
     {
         internal::g_GlobalLogger.Fatal(fmt, std::forward<TArgs>(args)...);
     }
