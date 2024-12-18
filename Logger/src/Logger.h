@@ -390,25 +390,25 @@ namespace lgx {
     }
 
     template <typename... TArgs>
-    inline auto Info(const std::string_view fmt, TArgs&&... args) -> void
+    inline auto LogInfo(const std::string_view fmt, TArgs&&... args) -> void
     {
         internal::g_GlobalLogger.Info(fmt, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
-    inline auto Warn(const std::string_view fmt, TArgs&&... args) -> void
+    inline auto LogWarn(const std::string_view fmt, TArgs&&... args) -> void
     {
         internal::g_GlobalLogger.Warn(fmt, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
-    inline auto Error(const std::string_view fmt, TArgs&&... args) -> void
+    inline auto LogError(const std::string_view fmt, TArgs&&... args) -> void
     {
         internal::g_GlobalLogger.Error(fmt, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
-    inline auto Fatal(const std::string_view fmt, TArgs&&... args) -> void
+    inline auto LogFatal(const std::string_view fmt, TArgs&&... args) -> void
     {
         internal::g_GlobalLogger.Fatal(fmt, std::forward<TArgs>(args)...);
     }
