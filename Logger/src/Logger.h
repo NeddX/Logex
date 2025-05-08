@@ -6,28 +6,39 @@ namespace lgx {
     public:
         struct DefaultStyle
         {
-            std::string     format           = "[{datetime}] [{level}] ({prefix}): {msg}\n";
+            std::string     format           = "[{datetime}] [{level}] ({prefix}): {msg}";
             fmt::text_style defaultInfoStyle = fmt::bg(fmt::color::dark_green) | fmt::fg(fmt::color::white);
             fmt::text_style defaultWarnStyle = fmt::bg(fmt::color::orange) | fmt::fg(fmt::color::black);
             fmt::text_style defaultErrorStyle =
                 fmt::emphasis::italic | fmt::bg(fmt::color::red) | fmt::fg(fmt::color::white);
             fmt::text_style defaultFatalStyle =
                 fmt::emphasis::italic | fmt::bg(fmt::color::dark_red) | fmt::fg(fmt::color::white);
+            fmt::text_style defaultDebugStyle =
+                fmt::emphasis::italic | fmt::bg(fmt::color::green) | fmt::fg(fmt::color::white);
+            fmt::text_style defaultVerboseStyle =
+                fmt::emphasis::italic | fmt::bg(fmt::color::gray) | fmt::fg(fmt::color::white);
         };
         struct Properties
         {
-            std::vector<std::ostream*> outputStreams               = { &std::cout };
-            bool                       unicodeSymbols              = false;
-            bool                       serializeToNonStdoutStreams = false;
-            bool                       flushOnLog                  = false;
-            std::string                defaultPrefix               = "App";
-            std::string                dateTimeFormat              = "%Y-%m-%d %H:%M:%S";
-            DefaultStyle               defaultStyle                = DefaultStyle{};
+            std::string                loggerName                   = "Logex";
+            Type                       appType                      = Type::User;
+            std::vector<std::ostream*> outputStreams                = { &std::cout };
+            bool                       serializeToNonStdoutStreams  = false;
+            bool                       writeStyleToNonStdoutStreams = false;
+            bool                       verbose                      = false;
+            bool                       syslog                       = false;
+            std::string                defaultPrefix                = "App";
+            std::string                dateTimeFormat               = "%Y-%m-%d %H:%M:%S";
+            DefaultStyle               defaultStyle                 = DefaultStyle{};
         };
 
     private:
-        Properties         m_Properties;
-        mutable std::mutex m_Guard;
+        Properties                      m_Properties;
+        mutable std::future<void>       m_PollThread;
+        mutable std::condition_variable m_PollCV;
+        mutable std::atomic<bool>       m_Run;
+        mutable std::deque<LogMsg>      m_LogQueue;
+        mutable std::mutex              m_QueueMutex;
 
     public:
         [[nodiscard]] inline auto GetOutputStreams() const noexcept -> const std::vector<std::ostream*>&
@@ -43,6 +54,7 @@ namespace lgx {
             return m_Properties.dateTimeFormat;
         }
         [[nodiscard]] inline auto GetFormat() const noexcept -> std::string { return m_Properties.defaultStyle.format; }
+        [[nodiscard]] inline auto GetSyslog() const noexcept -> bool { return m_Properties.syslog; }
         [[nodiscard]] inline auto GetDefaultInfoStyle() const noexcept -> fmt::text_style
         {
             return m_Properties.defaultStyle.defaultInfoStyle;
@@ -58,6 +70,14 @@ namespace lgx {
         [[nodiscard]] inline auto GetDefaultFatalStyle() const noexcept -> fmt::text_style
         {
             return m_Properties.defaultStyle.defaultFatalStyle;
+        }
+        [[nodiscard]] inline auto GetDefaultDebugStyle() const noexcept -> fmt::text_style
+        {
+            return m_Properties.defaultStyle.defaultDebugStyle;
+        }
+        [[nodiscard]] inline auto GetDefaultVerboseStyle() const noexcept -> fmt::text_style
+        {
+            return m_Properties.defaultStyle.defaultVerboseStyle;
         }
         inline auto SetOutputStreams(std::vector<std::ostream*> oss) noexcept -> void
         {
@@ -91,13 +111,32 @@ namespace lgx {
         {
             m_Properties.defaultStyle.defaultFatalStyle = newDefaultFatalStyle;
         }
+        inline auto SetDefaultDebugStyle(const fmt::text_style& newDefaultDebugStyle) noexcept -> void
+        {
+            m_Properties.defaultStyle.defaultDebugStyle = newDefaultDebugStyle;
+        }
+        inline auto SetDefaultVerboseStyle(const fmt::text_style& newDefaultVerboseStyle) noexcept -> void
+        {
+            m_Properties.defaultStyle.defaultVerboseStyle = newDefaultVerboseStyle;
+        }
+        inline auto SetVerbose(const bool enable) noexcept -> void { m_Properties.verbose = enable; }
+        inline auto SetSyslog(const bool enable) noexcept -> void { m_Properties.syslog = enable; }
 
     public:
         Logger(Properties properties) noexcept
             : m_Properties(std::move(properties))
         {
+            m_Run.store(true);
+            m_PollThread = std::async(std::launch::async, &Logger::PollLogs, this);
         }
-        ~Logger() noexcept {}
+        ~Logger() noexcept
+        {
+            m_Run.store(false);
+            m_PollCV.notify_all();
+
+            if (m_PollThread.valid())
+                m_PollThread.get();
+        }
 
     private:
         [[nodiscard]] constexpr auto DefaultStyleFromLevel(const Level level) const noexcept -> fmt::text_style
@@ -106,10 +145,13 @@ namespace lgx {
             {
                 using enum Level;
 
+                default:
                 case Info: return m_Properties.defaultStyle.defaultInfoStyle;
                 case Warn: return m_Properties.defaultStyle.defaultWarnStyle;
                 case Error: return m_Properties.defaultStyle.defaultErrorStyle;
                 case Fatal: return m_Properties.defaultStyle.defaultFatalStyle;
+                case Debug: return m_Properties.defaultStyle.defaultDebugStyle;
+                case Verbose: return m_Properties.defaultStyle.defaultVerboseStyle;
             }
         }
 
@@ -120,23 +162,63 @@ namespace lgx {
             return format.find(placeholder) != std::string_view::npos;
         }
 
-    public:
-        auto Flush() const -> void {}
-        auto Log(const LogMsg& log) const -> void
+    private:
+        void PollLogs()
         {
-            const std::lock_guard<std::mutex> lock{ m_Guard };
+#ifdef __unix__
+            if (m_Properties.syslog)
+            {
+                int facility = LOG_USER;
+                switch (m_Properties.appType)
+                {
+                    case Type::User: facility = LOG_USER; break;
+                    case Type::Daemon: facility = LOG_DAEMON; break;
+                    default: break;
+                }
+                openlog(m_Properties.loggerName.c_str(), LOG_PID | LOG_CONS, facility);
+            }
+#endif
 
-            // Prepare arguments conditionally based on the presence of placeholders in the format string
-            auto time_now = std::chrono::system_clock::now();
-            auto time_obj = std::chrono::system_clock::to_time_t(time_now);
+            while (m_Run.load())
+            {
+                std::unique_lock<std::mutex> guard{ m_QueueMutex };
+                m_PollCV.wait(guard, [this]() { return !m_LogQueue.empty() || !m_Run.load(); });
 
+                if (!m_LogQueue.empty())
+                {
+                    auto log = m_LogQueue.front();
+                    m_LogQueue.pop_front();
+                    InternalLog(std::move(log));
+                }
+            }
+
+#ifdef __unix__
+            if (m_Properties.syslog)
+                closelog();
+#endif
+        }
+
+    private:
+        inline auto InternalLog(const LogMsg& log) const -> void
+        {
+#ifndef LGX_DEBUG
+            if (log.level == Level::Debug)
+                return;
+#endif
+
+            if (log.level == Level::Verbose && !m_Properties.verbose)
+                return;
+
+            // Prepare arguments conditionally based on the presence of placeholders in the format string.
             auto arg_store = fmt::dynamic_format_arg_store<fmt::format_context>{};
 
             if (ContainsPlaceholder(m_Properties.defaultStyle.format, "{datetime}"))
             {
+                auto time_now = std::chrono::system_clock::now();
+                auto time_obj = std::chrono::system_clock::to_time_t(time_now);
                 arg_store.push_back(
                     fmt::arg("datetime", fmt::format(fmt::runtime("{:" + m_Properties.dateTimeFormat + '}'),
-                                                     fmt::localtime(time_obj))));
+                                                     fmt::localtime(std::move(time_obj)))));
             }
             if (ContainsPlaceholder(m_Properties.defaultStyle.format, "{level}"))
                 arg_store.push_back(fmt::arg("level", log.level));
@@ -151,113 +233,133 @@ namespace lgx {
             for (const auto& stream : m_Properties.outputStreams)
             {
                 if (stream == &std::cout)
-                    fmt::vprint(stdout, log.style, m_Properties.defaultStyle.format, arg_store);
+                {
+                    std::cout << fmt::vformat(log.style, m_Properties.defaultStyle.format, arg_store) << std::endl;
+                }
                 else
                 {
                     if (m_Properties.serializeToNonStdoutStreams)
-                        *stream << LogMsg::ToString(log) << '\n';
+                        *stream << LogMsg::ToString(log) << std::endl;
+                    else if (m_Properties.writeStyleToNonStdoutStreams)
+                        *stream << fmt::vformat(log.style, m_Properties.defaultStyle.format, arg_store) << std::endl;
                     else
-                        *stream << fmt::vformat(m_Properties.defaultStyle.format, arg_store);
-
-                    if (m_Properties.flushOnLog)
-                        stream->flush();
+                        *stream << fmt::vformat(m_Properties.defaultStyle.format, arg_store) << std::endl;
                 }
             }
+
+#ifdef __unix__
+            if (m_Properties.syslog)
+            {
+                std::string syslog_fmt = "{msg}";
+
+                // Prepare arguments conditionally based on the presence of placeholders in the format string.
+                auto arg_store = fmt::dynamic_format_arg_store<fmt::format_context>{};
+
+                if (ContainsPlaceholder(m_Properties.defaultStyle.format, "{prefix}"))
+                {
+                    syslog_fmt = "[{prefix}] " + syslog_fmt;
+                    arg_store.push_back(fmt::arg("prefix", log.prefix.value_or(m_Properties.defaultPrefix)));
+                }
+                if (!ContainsPlaceholder(m_Properties.defaultStyle.format, "{msg}"))
+                    throw std::invalid_argument("A message is always required.");
+
+                // Always push the message argument
+                arg_store.push_back(fmt::arg("msg", log.message));
+
+                int level = LOG_INFO;
+                switch (log.level)
+                {
+                    using enum Level;
+
+                    case Info: level = LOG_INFO; break;
+                    case Warn: level = LOG_WARNING; break;
+                    case Error: level = LOG_ERR; break;
+                    case Fatal: level = LOG_ALERT; break;
+                    case Debug:
+                    case Verbose: level = LOG_DEBUG; break;
+                }
+
+                std::string strlogmsg;
+                if (m_Properties.writeStyleToNonStdoutStreams)
+                    strlogmsg = fmt::vformat(log.style, syslog_fmt, arg_store);
+                else
+                    strlogmsg = fmt::vformat(syslog_fmt, arg_store);
+
+                syslog(level, "%s", strlogmsg.c_str());
+            }
+#endif
         }
-        template <typename... TArgs>
-        auto Log(const std::string_view prefix, const Level level, const fmt::text_style& style,
-                 const std::string_view fmt, TArgs&&... args) const -> void
+
+    public:
+        inline auto Log(LogMsg log) const -> void
         {
-            const std::lock_guard<std::mutex> lock{ m_Guard };
-
-            // Prepare arguments conditionally based on the presence of placeholders in the format string
-            auto time_now = std::chrono::system_clock::now();
-            auto time_obj = std::chrono::system_clock::to_time_t(time_now);
-
-            auto arg_store = fmt::dynamic_format_arg_store<fmt::format_context>{};
-
-            if (ContainsPlaceholder(m_Properties.defaultStyle.format, "{datetime}"))
-            {
-                arg_store.push_back(
-                    fmt::arg("datetime", fmt::format(fmt::runtime("{:" + m_Properties.dateTimeFormat + '}'),
-                                                     fmt::localtime(time_obj))));
-            }
-            if (ContainsPlaceholder(m_Properties.defaultStyle.format, "{level}"))
-                arg_store.push_back(fmt::arg("level", level));
-            if (ContainsPlaceholder(m_Properties.defaultStyle.format, "{prefix}"))
-                arg_store.push_back(fmt::arg("prefix", prefix));
-            if (!ContainsPlaceholder(m_Properties.defaultStyle.format, "{msg}"))
-                throw std::invalid_argument("A message is always required.");
-
-            // Always push the message argument
-            arg_store.push_back(fmt::arg("msg", fmt::format(fmt::runtime(fmt), std::forward<TArgs>(args)...)));
-
-            for (const auto& stream : m_Properties.outputStreams)
-            {
-                if (stream == &std::cout)
-                    fmt::vprint(stdout, style, m_Properties.defaultStyle.format, arg_store);
-                else
-                {
-                    if (m_Properties.serializeToNonStdoutStreams)
-                    {
-                        const auto log = LogMsg{ .level   = level,
-                                                 .message = fmt::vformat(m_Properties.defaultStyle.format, arg_store),
-                                                 .prefix  = std::string{ prefix },
-                                                 .style   = style };
-                        *stream << LogMsg::ToString(log) << '\n';
-                    }
-                    else
-                        *stream << fmt::vformat(m_Properties.defaultStyle.format, arg_store);
-
-                    if (m_Properties.flushOnLog)
-                        stream->flush();
-                }
-            }
+            std::scoped_lock guard{ m_QueueMutex };
+            m_LogQueue.push_back(std::move(log));
+            m_PollCV.notify_one();
         }
         template <typename... TArgs>
-        auto Log(LogMsg log, const std::string_view fmt, TArgs&&... args) const -> void
+        constexpr auto Log(std::string prefix, const Level level, const fmt::text_style& style,
+                           const std::string_view fmt, TArgs&&... args) const -> void
+        {
+            Log(LogMsg{ .level   = level,
+                        .message = fmt::format(fmt::runtime(fmt), std::forward<TArgs>(args)...),
+                        .prefix  = std::move(prefix),
+                        .style   = style });
+        }
+        template <typename... TArgs>
+        constexpr auto Log(LogMsg log, const std::string_view fmt, TArgs&&... args) const -> void
         {
             Log(log.prefix.value_or(m_Properties.defaultPrefix), log.level, log.style, fmt,
                 std::forward<TArgs>(args)...);
         }
         template <typename... TArgs>
-        auto Log(const Level level, const std::string_view fmt, TArgs&&... args) const -> void
+        constexpr auto Log(const Level level, const std::string_view fmt, TArgs&&... args) const -> void
         {
             Log(m_Properties.defaultPrefix, level, DefaultStyleFromLevel(level), fmt, std::forward<TArgs>(args)...);
         }
         template <typename... TArgs>
-        auto Log(const std::string_view prefix, const Level level, const std::string_view fmt, TArgs&&... args) const
-            -> void
+        constexpr auto Log(const std::string prefix, const Level level, const std::string_view fmt,
+                           TArgs&&... args) const -> void
         {
-            Log(prefix, level, DefaultStyleFromLevel(level), fmt, std::forward<TArgs>(args)...);
+            Log(std::move(prefix), level, DefaultStyleFromLevel(level), fmt, std::forward<TArgs>(args)...);
         }
         template <typename... TArgs>
-        auto Log(const Level level, const fmt::text_style& style, const std::string_view fmt, TArgs&&... args) const
-            -> void
+        constexpr auto Log(const Level level, const fmt::text_style& style, const std::string_view fmt,
+                           TArgs&&... args) const -> void
         {
             Log(m_Properties.defaultPrefix, level, style, fmt, std::forward<TArgs>(args)...);
         }
 
     public:
         template <typename... TArgs>
-        auto Info(const std::string_view fmt, TArgs&&... args) const -> void
+        constexpr auto Info(const std::string_view fmt, TArgs&&... args) const -> void
         {
             Log(Level::Info, fmt, std::forward<TArgs>(args)...);
         }
         template <typename... TArgs>
-        auto Warn(const std::string_view fmt, TArgs&&... args) const -> void
+        constexpr auto Warn(const std::string_view fmt, TArgs&&... args) const -> void
         {
             Log(Level::Warn, fmt, std::forward<TArgs>(args)...);
         }
         template <typename... TArgs>
-        auto Error(const std::string_view fmt, TArgs&&... args) const -> void
+        constexpr auto Error(const std::string_view fmt, TArgs&&... args) const -> void
         {
             Log(Level::Error, fmt, std::forward<TArgs>(args)...);
         }
         template <typename... TArgs>
-        auto Fatal(const std::string_view fmt, TArgs&&... args) const -> void
+        constexpr auto Fatal(const std::string_view fmt, TArgs&&... args) const -> void
         {
             Log(Level::Fatal, fmt, std::forward<TArgs>(args)...);
+        }
+        template <typename... TArgs>
+        constexpr auto Debug(const std::string_view fmt, TArgs&&... args) const -> void
+        {
+            Log(Level::Debug, fmt, std::forward<TArgs>(args)...);
+        }
+        template <typename... TArgs>
+        constexpr auto Verbose(const std::string_view fmt, TArgs&&... args) const -> void
+        {
+            Log(Level::Verbose, fmt, std::forward<TArgs>(args)...);
         }
     };
 
@@ -312,6 +414,11 @@ namespace lgx {
         return internal::g_GlobalLogger.GetDefaultFatalStyle();
     }
 
+    [[nodiscard]] inline auto GetDefaultDebugStyle() noexcept
+    {
+        return internal::g_GlobalLogger.GetDefaultDebugStyle();
+    }
+
     inline void SetDefaultPrefix(const std::string_view newDefaultPrefix) noexcept
     {
         internal::g_GlobalLogger.SetDefaultPrefix(newDefaultPrefix);
@@ -347,9 +454,14 @@ namespace lgx {
         internal::g_GlobalLogger.SetDefaultFatalStyle(style);
     }
 
-    inline auto Flush() -> void
+    inline void SetDefaultDebugStyle(const fmt::text_style& style) noexcept
     {
-        internal::g_GlobalLogger.Flush();
+        internal::g_GlobalLogger.SetDefaultDebugStyle(style);
+    }
+
+    inline void SetDefaultVerboseStyle(const fmt::text_style& style) noexcept
+    {
+        internal::g_GlobalLogger.SetDefaultVerboseStyle(style);
     }
 
     inline auto Log(const LogMsg& log) -> void
@@ -411,5 +523,17 @@ namespace lgx {
     inline auto LogFatal(const std::string_view fmt, TArgs&&... args) -> void
     {
         internal::g_GlobalLogger.Fatal(fmt, std::forward<TArgs>(args)...);
+    }
+
+    template <typename... TArgs>
+    inline auto LogDebug(const std::string_view fmt, TArgs&&... args) -> void
+    {
+        internal::g_GlobalLogger.Debug(fmt, std::forward<TArgs>(args)...);
+    }
+
+    template <typename... TArgs>
+    inline auto LogVerbose(const std::string_view fmt, TArgs&&... args) -> void
+    {
+        internal::g_GlobalLogger.Verbose(fmt, std::forward<TArgs>(args)...);
     }
 } // namespace lgx

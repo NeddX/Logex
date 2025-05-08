@@ -1,11 +1,16 @@
+#include <atomic>
 #include <charconv>
 #include <chrono>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <filesystem>
+#include <future>
 #include <iostream>
 #include <list>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -14,6 +19,11 @@
 #include <fmt/color.h>
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <fmt/ranges.h>
+
+#ifdef __unix__
+#include <syslog.h>
+#endif
 
 // TODO: Remove this macro and replace its instances with just inline.
 #define LGX_CONSTEXPR inline
@@ -24,7 +34,15 @@ namespace lgx {
         Info = 0,
         Warn,
         Error,
-        Fatal
+        Fatal,
+        Debug,
+        Verbose
+    };
+
+    enum class Type : std::uint8_t
+    {
+        User,
+        Daemon
     };
 
     // For shorthand.
@@ -42,10 +60,12 @@ namespace fmt {
             {
                 using enum lgx::Level;
 
-                case Info: name = "Info"; break;
-                case Warn: name = "Warning"; break;
-                case Error: name = "Error"; break;
-                case Fatal: name = "Fatal"; break;
+                case Info: name = "INFO"; break;
+                case Warn: name = "WARN"; break;
+                case Error: name = "ERROR"; break;
+                case Fatal: name = "FATAL"; break;
+                case Debug: name = "DEBUG"; break;
+                case Verbose: name = "VERBOSE"; break;
             };
 
             return formatter<std::string_view>::format(name, ctx);
