@@ -55,7 +55,7 @@ namespace lgx {
         [[nodiscard]] LGX_CONSTEXPR auto SerializeFmtColorType(
             const fmt::detail::color_type& type) noexcept -> std::string
         {
-            return fmt::format("{{is_rgb={};value={}}}", type.is_rgb, type.value.rgb_color);
+            return fmt::format("{{value={}}}", type.value());
         }
         [[nodiscard]] LGX_CONSTEXPR auto SerializeFmtStyle(const fmt::text_style& style) noexcept -> std::string
         {

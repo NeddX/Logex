@@ -10,20 +10,12 @@ namespace lgx {
             if (serializedString.compare("{null}") == 0)
                 return std::nullopt;
 
-            const auto is_rgb_start = serializedString.find("is_rgb=") + sizeof("is_rgb=") - 1;
-            if (is_rgb_start != std::string::npos)
-            {
-                const auto end = serializedString.substr(is_rgb_start).find(";");
-                const auto str = serializedString.substr(is_rgb_start, end);
-                type.is_rgb    = (str == "true") ? true : false;
-            }
-
             const auto value_start = serializedString.find("value=") + sizeof("value=") - 1;
             if (value_start != std::string::npos)
             {
                 const auto end = serializedString.substr(value_start).find("}");
                 const auto str = serializedString.substr(value_start, end);
-                std::from_chars(str.data(), str.data() + str.size(), type.value.rgb_color);
+                std::from_chars(str.data(), str.data() + str.size(), type.value_);
             }
             return type;
         }
