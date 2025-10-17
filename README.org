@@ -46,8 +46,8 @@ Logging to the global logger.
 
 auto main() -> int
 {
-    lgx::Log(lgx::Level::Info, "Nature's abomination sweats milk.");
-    lgx::Log(lgx::Level::Warn, "Sleep deprivation is bad.");
+    lgx::Log(lgx::Info, "Nature's abomination sweats milk.");
+    lgx::Log(lgx::Warn, "Sleep deprivation is bad.");
 
     // Or use the alias functions.
     lgx::Info("Shorter");
@@ -64,7 +64,7 @@ Format and customize using fmt.
 auto main() -> int
 {
     // For customizability use the Log(...) function's overloads.
-    lgx::Log(lgx::Level::Info, fmt::fg(fmt::color::aqua), "Not so random number: {}", std::srand() % 256);
+    lgx::Log(lgx::Info, fmt::fg(fmt::color::aqua), "Not so random number: {}", std::srand() % 256);
     return 0;
 }
 #+end_src
@@ -76,11 +76,11 @@ Create separate logger instances with their own properties.
 auto main() -> int
 {
     const auto editor_logger = lgx::Logger{lgx::Logger::Properties { .defaultPrefix = "Editor", .defaultStyle = { .format = "({datetime})-({prefix})-({level}): {msg}\n" }}};
-    editor_logger.Log(lgx::Level::Info, "Editor logger");
+    editor_logger.Log(lgx::Info, "Editor logger");
 
     // Or use the global registry.
     const auto engine_logger = lgx::New("engine_logger", lgx::Logger{lgx::Logger::Properties { .defaultPrefix = "Engine", .defaultStyle = { .format = "({datetime})-({prefix})-({level}): {msg}\n" }}});
-    lgx::Get("engine_logger").Log(lgx::Level::Info, "Engine logger");
+    lgx::Get("engine_logger").Log(lgx::Info, "Engine logger");
 
     return 0;
 }

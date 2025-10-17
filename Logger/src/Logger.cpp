@@ -1,9 +1,12 @@
 #include "Logger.h"
 
 namespace lgx {
-    namespace internal {
-        Logger g_GlobalLogger =
-            Logger{ Logger::Properties{ .outputStreams = { &std::cout }, .defaultPrefix = "Global" } };
-        std::unordered_map<std::string, Logger> g_Loggers;
-    } // namespace internal
+    auto Get(const std::string& loggerName) -> Logger& {
+        static std::unordered_map<std::string, Logger> loggers = {
+        { "global", lgx::Logger::Properties {
+            .defaultPrefix = "Global",
+        }}
+    };
+        return loggers[loggerName];
+    }
 } // namespace lgx

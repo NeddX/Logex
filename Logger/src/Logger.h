@@ -62,7 +62,10 @@ namespace lgx {
         {
             m_Properties.dateTimeFormat = newDateTimeFormat;
         }
-        inline void SetFormat(const std::string_view newFormat) noexcept { m_Properties.defaultStyle.format = newFormat; }
+        inline void SetFormat(const std::string_view newFormat) noexcept
+        {
+            m_Properties.defaultStyle.format = newFormat;
+        }
         inline void SetDefaultInfoStyle(const fmt::text_style& newDefaultInfoStyle) noexcept
         {
             m_Properties.defaultStyle.defaultInfoStyle = newDefaultInfoStyle;
@@ -81,8 +84,21 @@ namespace lgx {
         }
 
     public:
+        Logger() noexcept
+        {
+        }
         Logger(Properties properties) noexcept
             : m_Properties(std::move(properties))
+        {
+        }
+        Logger(const Logger& other) noexcept
+            : m_Properties(other.m_Properties)
+            , m_Guard()
+        {
+        }
+        Logger(Logger&& other) noexcept
+            : m_Properties(std::move(other.m_Properties))
+            , m_Guard()
         {
         }
         ~Logger() noexcept {}
@@ -240,149 +256,135 @@ namespace lgx {
         }
     };
 
-    namespace internal {
-        extern Logger                                  g_GlobalLogger;
-        extern std::unordered_map<std::string, Logger> g_Loggers;
-    } // namespace internal
-
-    [[nodiscard]] inline auto Get(const std::string& loggerName) -> Logger&
-    {
-        return internal::g_Loggers.at(loggerName);
-    }
-
-    inline auto New(const std::string& name, const Logger::Properties& properties) noexcept -> Logger&
-    {
-        auto [it, con] = internal::g_Loggers.emplace(name, properties);
-        return it->second;
-    }
+    [[nodiscard]] auto Get(const std::string& loggerName) -> Logger&;
 
     [[nodiscard]] inline auto GetDefaultPrefix() noexcept
     {
-        return internal::g_GlobalLogger.GetDefaultPrefix();
+        return Get("global").GetDefaultPrefix();
     }
 
     [[nodiscard]] inline auto GetDateTimeFormat() noexcept
     {
-        return internal::g_GlobalLogger.GetDateTimeFormat();
+        return Get("global").GetDateTimeFormat();
     }
 
     [[nodiscard]] inline auto GetFormat() noexcept -> std::string
     {
-        return internal::g_GlobalLogger.GetFormat();
+        return Get("global").GetFormat();
     }
 
     [[nodiscard]] inline auto GetDefaultInfoStyle() noexcept
     {
-        return internal::g_GlobalLogger.GetDefaultInfoStyle();
+        return Get("global").GetDefaultInfoStyle();
     }
 
     [[nodiscard]] inline auto GetDefaultWarnStyle() noexcept
     {
-        return internal::g_GlobalLogger.GetDefaultWarnStyle();
+        return Get("global").GetDefaultWarnStyle();
     }
 
     [[nodiscard]] inline auto GetDefaultErrorStyle() noexcept
     {
-        return internal::g_GlobalLogger.GetDefaultErrorStyle();
+        return Get("global").GetDefaultErrorStyle();
     }
 
     [[nodiscard]] inline auto GetDefaultFatalStyle() noexcept
     {
-        return internal::g_GlobalLogger.GetDefaultFatalStyle();
+        return Get("global").GetDefaultFatalStyle();
     }
 
     inline void SetDefaultPrefix(const std::string_view newDefaultPrefix) noexcept
     {
-        internal::g_GlobalLogger.SetDefaultPrefix(newDefaultPrefix);
+        Get("global").SetDefaultPrefix(newDefaultPrefix);
     }
 
     inline void SetDateTimeFormat(const std::string_view newDateTimeFormat) noexcept
     {
-        internal::g_GlobalLogger.SetDateTimeFormat(newDateTimeFormat);
+        Get("global").SetDateTimeFormat(newDateTimeFormat);
     }
 
     inline void SetFormat(const std::string_view newFormat) noexcept
     {
-        internal::g_GlobalLogger.SetFormat(newFormat);
+        Get("global").SetFormat(newFormat);
     }
 
     inline void SetDefaultInfoStyle(const fmt::text_style& style) noexcept
     {
-        internal::g_GlobalLogger.SetDefaultInfoStyle(style);
+        Get("global").SetDefaultInfoStyle(style);
     }
 
     inline void SetDefaultWarnStyle(const fmt::text_style& style) noexcept
     {
-        internal::g_GlobalLogger.SetDefaultWarnStyle(style);
+        Get("global").SetDefaultWarnStyle(style);
     }
 
     inline void SetDefaultErrorStyle(const fmt::text_style& style) noexcept
     {
-        internal::g_GlobalLogger.SetDefaultErrorStyle(style);
+        Get("global").SetDefaultErrorStyle(style);
     }
 
     inline void SetDefaultFatalStyle(const fmt::text_style& style) noexcept
     {
-        internal::g_GlobalLogger.SetDefaultFatalStyle(style);
+        Get("global").SetDefaultFatalStyle(style);
     }
 
     inline void Log(const LogMsg& log)
     {
-        internal::g_GlobalLogger.Log(log);
+        Get("global").Log(log);
     }
 
     template <typename... TArgs>
     inline void Log(const std::string_view prefix, const Level level, const fmt::text_style& style,
                     const std::string_view fmt, TArgs&&... args)
     {
-        internal::g_GlobalLogger.Log(prefix, level, style, fmt, std::forward<TArgs>(args)...);
+        Get("global").Log(prefix, level, style, fmt, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
     inline void Log(const LogMsg& log, const std::string_view fmt, TArgs&&... args)
     {
-        internal::g_GlobalLogger.Log(log, fmt, std::forward<TArgs>(args)...);
+        Get("global").Log(log, fmt, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
     inline void Log(const Level level, const std::string_view fmt, TArgs&&... args)
     {
-        internal::g_GlobalLogger.Log(level, fmt, std::forward<TArgs>(args)...);
+        Get("global").Log(level, fmt, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
     inline void Log(const std::string_view prefix, const Level level, const std::string_view fmt, TArgs&&... args)
     {
-        internal::g_GlobalLogger.Log(prefix, level, fmt, std::forward<TArgs>(args)...);
+        Get("global").Log(prefix, level, fmt, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
     void Log(const Level level, const fmt::text_style& style, const std::string_view fmt, TArgs&&... args)
     {
-        internal::g_GlobalLogger.Log(level, style, fmt, std::forward<TArgs>(args)...);
+        Get("global").Log(level, style, fmt, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
     inline void Info(const std::string_view fmt, TArgs&&... args)
     {
-        internal::g_GlobalLogger.Info(fmt, std::forward<TArgs>(args)...);
+        Get("global").Info(fmt, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
     inline void Warn(const std::string_view fmt, TArgs&&... args)
     {
-        internal::g_GlobalLogger.Warn(fmt, std::forward<TArgs>(args)...);
+        Get("global").Warn(fmt, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
     inline void Error(const std::string_view fmt, TArgs&&... args)
     {
-        internal::g_GlobalLogger.Error(fmt, std::forward<TArgs>(args)...);
+        Get("global").Error(fmt, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
     inline void Fatal(const std::string_view fmt, TArgs&&... args)
     {
-        internal::g_GlobalLogger.Fatal(fmt, std::forward<TArgs>(args)...);
+        Get("global").Fatal(fmt, std::forward<TArgs>(args)...);
     }
 } // namespace lgx

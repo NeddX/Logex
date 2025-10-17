@@ -27,19 +27,19 @@ auto main() -> int
     file_logger.Fatal("A Fatal error has occured.");
 
     // Log using the global logger.
-    lgx::Log(lgx::Level::Info, "The global logger");
-    lgx::Log("App", lgx::Level::Warn, fmt::fg(fmt::color::orange) | fmt::bg(fmt::color::dark_blue),
+    lgx::Log(lgx::Info, "The global logger");
+    lgx::Log("App", lgx::Warn, fmt::fg(fmt::color::orange) | fmt::bg(fmt::color::dark_blue),
              "Fancy customization using fmt.");
 
     // Serializable log messages.
     const auto serialized_log = lgx::LogMsg::ToString(
-        lgx::LogMsg{ .level   = lgx::Level::Error,
+        lgx::LogMsg{ .level   = lgx::Error,
                      .message = fmt::format("An error occured in file: {}", __FILE__),
                      .style   = fmt::fg(fmt::color::black) | fmt::emphasis::bold | fmt::bg(fmt::color::aqua) });
 
     // Create a logger instance inside the global registry.
     lgx::New("debug_logger", lgx::Logger::Properties{ .defaultPrefix = "DebugLogger" });
-    lgx::Get("debug_logger").Log(lgx::Level::Info, "Debug logger");
+    lgx::Get("debug_logger").Log(lgx::Info, "Debug logger");
 
     // Customize the global logger.
     // You can also customize logger instances as well by calling the same method
@@ -50,7 +50,7 @@ auto main() -> int
     lgx::SetDefaultFatalStyle(fmt::fg(fmt::color::dark_red));
     lgx::SetDefaultPrefix("App");
 
-    lgx::Log(lgx::Level::Info, "Serialized (to string) log message: {}", serialized_log);
+    lgx::Log(lgx::Info, "Serialized (to string) log message: {}", serialized_log);
     lgx::LogMsg deserialized_log = lgx::LogMsg::FromString(serialized_log);
     lgx::Log(deserialized_log);
 }
