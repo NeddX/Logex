@@ -31,62 +31,77 @@ namespace lgx {
     public:
         [[nodiscard]] inline auto GetDefaultPrefix() const noexcept -> std::string
         {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
             return m_Properties.defaultPrefix;
         }
         [[nodiscard]] inline auto GetDateTimeFormat() const noexcept -> std::string
         {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
             return m_Properties.dateTimeFormat;
         }
-        [[nodiscard]] inline auto GetFormat() const noexcept -> std::string { return m_Properties.defaultStyle.format; }
+        [[nodiscard]] inline auto GetFormat() const noexcept -> std::string
+        {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
+            return m_Properties.defaultStyle.format;
+        }
         [[nodiscard]] inline auto GetDefaultInfoStyle() const noexcept -> fmt::text_style
         {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
             return m_Properties.defaultStyle.defaultInfoStyle;
         }
         [[nodiscard]] inline auto GetDefaultWarnStyle() const noexcept -> fmt::text_style
         {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
             return m_Properties.defaultStyle.defaultWarnStyle;
         }
         [[nodiscard]] inline auto GetDefaultErrorStyle() const noexcept -> fmt::text_style
         {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
             return m_Properties.defaultStyle.defaultErrorStyle;
         }
         [[nodiscard]] inline auto GetDefaultFatalStyle() const noexcept -> fmt::text_style
         {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
             return m_Properties.defaultStyle.defaultFatalStyle;
         }
         inline void SetDefaultPrefix(const std::string_view newDefaultPrefix) noexcept
         {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
             m_Properties.defaultPrefix = newDefaultPrefix;
         }
         inline void SetDateTimeFormat(const std::string_view newDateTimeFormat) noexcept
         {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
             m_Properties.dateTimeFormat = newDateTimeFormat;
         }
         inline void SetFormat(const std::string_view newFormat) noexcept
         {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
             m_Properties.defaultStyle.format = newFormat;
         }
         inline void SetDefaultInfoStyle(const fmt::text_style& newDefaultInfoStyle) noexcept
         {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
             m_Properties.defaultStyle.defaultInfoStyle = newDefaultInfoStyle;
         }
         inline void SetDefaultWarnStyle(const fmt::text_style& newDefaultWarnStyle) noexcept
         {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
             m_Properties.defaultStyle.defaultWarnStyle = newDefaultWarnStyle;
         }
         inline void SetDefaultErrorStyle(const fmt::text_style& newDefaultErrorStyle) noexcept
         {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
             m_Properties.defaultStyle.defaultErrorStyle = newDefaultErrorStyle;
         }
         inline void SetDefaultFatalStyle(const fmt::text_style& newDefaultFatalStyle) noexcept
         {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
             m_Properties.defaultStyle.defaultFatalStyle = newDefaultFatalStyle;
         }
 
     public:
-        Logger() noexcept
-        {
-        }
+        Logger() noexcept {}
         Logger(Properties properties) noexcept
             : m_Properties(std::move(properties))
         {
@@ -362,29 +377,5 @@ namespace lgx {
     void Log(const Level level, const fmt::text_style& style, const std::string_view fmt, TArgs&&... args)
     {
         Get("global").Log(level, style, fmt, std::forward<TArgs>(args)...);
-    }
-
-    template <typename... TArgs>
-    inline void Info(const std::string_view fmt, TArgs&&... args)
-    {
-        Get("global").Info(fmt, std::forward<TArgs>(args)...);
-    }
-
-    template <typename... TArgs>
-    inline void Warn(const std::string_view fmt, TArgs&&... args)
-    {
-        Get("global").Warn(fmt, std::forward<TArgs>(args)...);
-    }
-
-    template <typename... TArgs>
-    inline void Error(const std::string_view fmt, TArgs&&... args)
-    {
-        Get("global").Error(fmt, std::forward<TArgs>(args)...);
-    }
-
-    template <typename... TArgs>
-    inline void Fatal(const std::string_view fmt, TArgs&&... args)
-    {
-        Get("global").Fatal(fmt, std::forward<TArgs>(args)...);
     }
 } // namespace lgx
