@@ -1,19 +1,30 @@
+#include <atomic>
+#include <charconv>
 #include <chrono>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <filesystem>
+#include <future>
 #include <iostream>
 #include <list>
 #include <mutex>
+#include <shared_mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
-#include <charconv>
 
 #include <fmt/args.h>
 #include <fmt/chrono.h>
 #include <fmt/color.h>
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <fmt/ranges.h>
+
+#ifdef __unix__
+#include <syslog.h>
+#endif
 
 // TODO: Remove this macro and replace its instances with just inline.
 #define LGX_CONSTEXPR inline
@@ -24,8 +35,19 @@ namespace lgx {
         Info = 0,
         Warn,
         Error,
-        Fatal
+        Fatal,
+        Debug,
+        Verbose
     };
+
+    enum class Type : std::uint8_t
+    {
+        User,
+        Daemon
+    };
+
+    // For shorthand.
+    using enum Level;
 } // namespace lgx
 
 namespace fmt {
@@ -39,10 +61,12 @@ namespace fmt {
             {
                 using enum lgx::Level;
 
-                case Info: name = "Info"; break;
-                case Warn: name = "Warning"; break;
-                case Error: name = "Error"; break;
-                case Fatal: name = "Fatal"; break;
+                case Info: name = "INFO"; break;
+                case Warn: name = "WARN"; break;
+                case Error: name = "ERROR"; break;
+                case Fatal: name = "FATAL"; break;
+                case Debug: name = "DEBUG"; break;
+                case Verbose: name = "VERBOSE"; break;
             };
 
             return formatter<std::string_view>::format(name, ctx);
@@ -52,8 +76,8 @@ namespace fmt {
 
 namespace lgx {
     namespace utils {
-        [[nodiscard]] LGX_CONSTEXPR auto SerializeFmtColorType(
-            const fmt::detail::color_type& type) noexcept -> std::string
+        [[nodiscard]] LGX_CONSTEXPR auto SerializeFmtColorType(const fmt::detail::color_type& type) noexcept
+            -> std::string
         {
             return fmt::format("{{value={}}}", type.value());
         }
@@ -64,8 +88,8 @@ namespace lgx {
                                style.has_background() ? SerializeFmtColorType(style.get_background()) : "{null}",
                                (style.has_emphasis()) ? static_cast<std::uint8_t>(style.get_emphasis()) : 0);
         }
-        [[nodiscard]] auto DeserializeFmtColorType(
-            const std::string_view serializedString) noexcept -> std::optional<fmt::detail::color_type>;
+        [[nodiscard]] auto DeserializeFmtColorType(const std::string_view serializedString) noexcept
+            -> std::optional<fmt::detail::color_type>;
         [[nodiscard]] auto DeserializeFmtStyle(const std::string_view serializedString) noexcept -> fmt::text_style;
     } // namespace utils
 

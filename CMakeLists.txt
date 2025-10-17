@@ -23,4 +23,7 @@ endif()
 
 # Add sub projects.
 add_subdirectory("Logger")
-add_subdirectory("Testbed")
+
+if(DEFINED LGX_BUILD_TESTBED)
+	add_subdirectory("Testbed")
+endif()
