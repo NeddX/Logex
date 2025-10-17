@@ -43,6 +43,7 @@ namespace lgx {
     public:
         [[nodiscard]] inline auto GetOutputStreams() const noexcept -> const std::vector<std::ostream*>&
         {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
             return m_Properties.outputStreams;
         }
         [[nodiscard]] inline auto GetDefaultPrefix() const noexcept -> std::string
@@ -87,14 +88,17 @@ namespace lgx {
         }
         [[nodiscard]] inline auto GetDefaultDebugStyle() const noexcept -> fmt::text_style
         {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
             return m_Properties.defaultStyle.defaultDebugStyle;
         }
         [[nodiscard]] inline auto GetDefaultVerboseStyle() const noexcept -> fmt::text_style
         {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
             return m_Properties.defaultStyle.defaultVerboseStyle;
         }
         inline auto SetOutputStreams(std::vector<std::ostream*> oss) noexcept -> void
         {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
             m_Properties.outputStreams = std::move(oss);
         }
         inline auto SetDefaultPrefix(const std::string_view newDefaultPrefix) noexcept -> void
