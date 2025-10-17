@@ -20,6 +20,11 @@ target_link_libraries(Logex ${FMT_LIBRARIES})
 target_include_directories(Logex PUBLIC include/)
 target_include_directories(Logex PUBLIC src/)
 
+# Define the debug macro if build type is debug.
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_definitions(Logex PUBLIC LGX_DEBUG)
+endif()
+
 # Define a function to add warning flags for GCC/Clang or MSVC
 function(add_warning_flags target)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
