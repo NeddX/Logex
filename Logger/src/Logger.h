@@ -36,9 +36,9 @@ namespace lgx {
         Properties                      m_Properties;
         mutable std::future<void>       m_PollThread;
         mutable std::condition_variable m_PollCV;
-        mutable std::atomic<bool>       m_Run;
+        mutable bool                    m_Run;
         mutable std::deque<LogMsg>      m_LogQueue;
-        mutable std::mutex              m_QueueMutex;
+        mutable std::mutex              m_Guard;
 
     public:
         [[nodiscard]] inline auto GetOutputStreams() const noexcept -> const std::vector<std::ostream*>&
@@ -138,42 +138,56 @@ namespace lgx {
         }
         inline auto SetDefaultDebugStyle(const fmt::text_style& newDefaultDebugStyle) noexcept -> void
         {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
             m_Properties.defaultStyle.defaultDebugStyle = newDefaultDebugStyle;
         }
         inline auto SetDefaultVerboseStyle(const fmt::text_style& newDefaultVerboseStyle) noexcept -> void
         {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
             m_Properties.defaultStyle.defaultVerboseStyle = newDefaultVerboseStyle;
         }
-        inline auto SetVerbose(const bool enable) noexcept -> void { m_Properties.verbose = enable; }
-        inline auto SetSyslog(const bool enable) noexcept -> void { m_Properties.syslog = enable; }
+        inline auto SetVerbose(const bool enable) noexcept -> void
+        {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
+            m_Properties.verbose = enable;
+        }
+        inline auto SetSyslog(const bool enable) noexcept -> void
+        {
+            const std::lock_guard<std::mutex> lock{ m_Guard };
+            m_Properties.syslog = enable;
+        }
 
     public:
         Logger() noexcept {}
         Logger(Properties properties) noexcept
             : m_Properties(std::move(properties))
+            , m_Run(true)
         {
-            m_Run.store(true);
             m_PollThread = std::async(std::launch::async, &Logger::PollLogs, this);
         }
         ~Logger() noexcept
         {
-            m_Run.store(false);
+            m_Run = false;
             m_PollCV.notify_all();
 
             if (m_PollThread.valid())
                 m_PollThread.get();
+            fmt::println("About to be yoppie doppitied outta this world");
         }
-        Logger(const Logger& other) noexcept
-            : m_Properties(other.m_Properties)
-            , m_Guard()
-        {
-        }
+        Logger(const Logger& other) noexcept = delete;
         Logger(Logger&& other) noexcept
-            : m_Properties(std::move(other.m_Properties))
-            , m_Guard()
         {
+            if (this != &other)
+            {
+                const std::lock_guard<std::mutex> lock1{ other.m_Guard };
+
+                m_Properties = std::move(other.m_Properties);
+                m_LogQueue   = std::move(other.m_LogQueue);
+                m_Run        = true;
+                m_PollThread = std::async(std::launch::async, &Logger::PollLogs, this);
+            }
         }
-        ~Logger() noexcept {}
+        Logger& operator=(Logger&& other) noexcept { return Logger{ std::move(other) }.Swap(*this); }
 
     private:
         [[nodiscard]] constexpr auto DefaultStyleFromLevel(const Level level) const noexcept -> fmt::text_style
@@ -203,23 +217,26 @@ namespace lgx {
         void PollLogs()
         {
 #ifdef __unix__
-            if (m_Properties.syslog)
             {
-                int facility = LOG_USER;
-                switch (m_Properties.appType)
+                const std::lock_guard<std::mutex> lock{ m_Guard };
+                if (m_Properties.syslog)
                 {
-                    case Type::User: facility = LOG_USER; break;
-                    case Type::Daemon: facility = LOG_DAEMON; break;
-                    default: break;
+                    int facility = LOG_USER;
+                    switch (m_Properties.appType)
+                    {
+                        case Type::User: facility = LOG_USER; break;
+                        case Type::Daemon: facility = LOG_DAEMON; break;
+                        default: break;
+                    }
+                    openlog(m_Properties.loggerName.c_str(), LOG_PID | LOG_CONS, facility);
                 }
-                openlog(m_Properties.loggerName.c_str(), LOG_PID | LOG_CONS, facility);
             }
 #endif
 
-            while (m_Run.load())
+            while (m_Run)
             {
-                std::unique_lock<std::mutex> guard{ m_QueueMutex };
-                m_PollCV.wait(guard, [this]() { return !m_LogQueue.empty() || !m_Run.load(); });
+                std::unique_lock<std::mutex> guard{ m_Guard };
+                m_PollCV.wait(guard, [this]() { return !m_LogQueue.empty() || !m_Run; });
 
                 if (!m_LogQueue.empty())
                 {
@@ -255,7 +272,7 @@ namespace lgx {
                 auto time_obj = std::chrono::system_clock::to_time_t(time_now);
                 arg_store.push_back(
                     fmt::arg("datetime", fmt::format(fmt::runtime("{:" + m_Properties.dateTimeFormat + '}'),
-                                                     fmt::localtime(std::move(time_obj)))));
+                                                     *std::localtime(&time_obj))));
             }
             if (ContainsPlaceholder(m_Properties.defaultStyle.format, "{level}"))
                 arg_store.push_back(fmt::arg("level", log.level));
@@ -328,9 +345,22 @@ namespace lgx {
         }
 
     public:
+        Logger& Swap(Logger& other) noexcept
+        {
+            if (this != &other)
+            {
+                const std::lock_guard<std::mutex> lock0{ m_Guard };
+                const std::lock_guard<std::mutex> lock1{ other.m_Guard };
+
+                std::swap(m_Properties, other.m_Properties);
+                std::swap(m_Run, other.m_Run);
+                std::swap(m_LogQueue, other.m_LogQueue);
+            }
+            return *this;
+        }
         inline auto Log(LogMsg log) const -> void
         {
-            std::scoped_lock guard{ m_QueueMutex };
+            const std::scoped_lock guard{ m_Guard };
             m_LogQueue.push_back(std::move(log));
             m_PollCV.notify_one();
         }
@@ -439,7 +469,7 @@ namespace lgx {
 
     [[nodiscard]] inline auto GetDefaultDebugStyle() noexcept
     {
-        return internal::g_GlobalLogger.GetDefaultDebugStyle();
+        return Get("global").GetDefaultDebugStyle();
     }
 
     inline void SetDefaultPrefix(const std::string_view newDefaultPrefix) noexcept
@@ -479,12 +509,12 @@ namespace lgx {
 
     inline void SetDefaultDebugStyle(const fmt::text_style& style) noexcept
     {
-        internal::g_GlobalLogger.SetDefaultDebugStyle(style);
+        Get("global").SetDefaultDebugStyle(style);
     }
 
     inline void SetDefaultVerboseStyle(const fmt::text_style& style) noexcept
     {
-        internal::g_GlobalLogger.SetDefaultVerboseStyle(style);
+        Get("global").SetDefaultVerboseStyle(style);
     }
 
     inline auto Log(const LogMsg& log) -> void
@@ -522,17 +552,5 @@ namespace lgx {
     auto Log(const Level level, const fmt::text_style& style, const std::string_view fmt, TArgs&&... args) -> void
     {
         Get("global").Log(level, style, fmt, std::forward<TArgs>(args)...);
-    }
-
-    template <typename... TArgs>
-    inline auto LogDebug(const std::string_view fmt, TArgs&&... args) -> void
-    {
-        internal::g_GlobalLogger.Debug(fmt, std::forward<TArgs>(args)...);
-    }
-
-    template <typename... TArgs>
-    inline auto LogVerbose(const std::string_view fmt, TArgs&&... args) -> void
-    {
-        internal::g_GlobalLogger.Verbose(fmt, std::forward<TArgs>(args)...);
     }
 } // namespace lgx

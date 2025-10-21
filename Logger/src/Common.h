@@ -61,12 +61,12 @@ namespace fmt {
             {
                 using enum lgx::Level;
 
-                case Info: name = "INFO"; break;
-                case Warn: name = "WARN"; break;
-                case Error: name = "ERROR"; break;
-                case Fatal: name = "FATAL"; break;
-                case Debug: name = "DEBUG"; break;
-                case Verbose: name = "VERBOSE"; break;
+                case Info: name = "Info"; break;
+                case Warn: name = "Warn"; break;
+                case Error: name = "Error"; break;
+                case Fatal: name = "Fatal"; break;
+                case Debug: name = "Debug"; break;
+                case Verbose: name = "Verbose"; break;
             };
 
             return formatter<std::string_view>::format(name, ctx);
