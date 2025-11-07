@@ -10,10 +10,10 @@ add_library(Logex STATIC ${SRC_FILES} ${HDR_FILES} "src/Common.h")
 set_property(TARGET Logex PROPERTY CXX_STANDARD 20)
 
 add_subdirectory(vendor/fmt ${PROJECT_BINARY_DIR}/fmt EXCLUDE_FROM_ALL)
-set(FMT_INCLUDE_DIRS vendor/fmt/include)
-set(FMT_LIBRARIES fmt)
+set(FMT_INCLUDE_DIR vendor/fmt/include CACHE INTERNAL "")
+set(FMT_LIBRARIES fmt CACHE INTERNAL "")
 
-target_include_directories(Logex PUBLIC ${FMT_INCLUDE_DIRS})
+target_include_directories(Logex PUBLIC ${FMT_INCLUDE_DIR})
 target_link_libraries(Logex ${FMT_LIBRARIES})
 
 # Make the base include file public
