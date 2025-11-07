@@ -172,7 +172,6 @@ namespace lgx {
 
             if (m_PollThread.valid())
                 m_PollThread.get();
-            fmt::println("About to be yoppie doppitied outta this world");
         }
         Logger(const Logger& other) noexcept = delete;
         Logger(Logger&& other) noexcept
