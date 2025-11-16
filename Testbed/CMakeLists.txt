@@ -9,4 +9,4 @@ add_executable(Testbed ${SRC_FILES} ${HDR_FILES})
 # Set the C++ Standard to 20 for this target.
 set_property(TARGET Testbed PROPERTY CXX_STANDARD 20)
 
-target_link_libraries(Testbed Logex)
+target_link_libraries(Testbed Logex-static)
