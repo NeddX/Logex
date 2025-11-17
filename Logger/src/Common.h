@@ -1,3 +1,5 @@
+#pragma once
+
 #include <atomic>
 #include <charconv>
 #include <chrono>
@@ -10,8 +12,8 @@
 #include <iostream>
 #include <list>
 #include <mutex>
-#include <shared_mutex>
 #include <optional>
+#include <shared_mutex>
 #include <string>
 #include <unordered_map>
 
