@@ -56,17 +56,17 @@ function(add_asan_flags target)
     endif()
 endfunction()
 
-install(TARGETS logex-static
-	EXPORT logexTargets
-	ARCHIVE DESTINATION lib
-	LIBRARY DESTINATION lib
-	RUNTIME DESTINATION bin
-)
-install(DIRECTORY include/ DESTINATION include)
-install(EXPORT logexTargets
-	NAMESPACE logex::
-	DESTINATION lib/cmake/logex
-)
+#install(TARGETS logex-static
+#	EXPORT logexTargets
+#	ARCHIVE DESTINATION lib
+#	LIBRARY DESTINATION lib
+#	RUNTIME DESTINATION bin
+#)
+#install(DIRECTORY include/ DESTINATION include)
+#install(EXPORT logexTargets
+#	NAMESPACE logex::
+#	DESTINATION lib/cmake/logex
+#)
 
 # Quality control
 add_warning_flags(logex-static)
